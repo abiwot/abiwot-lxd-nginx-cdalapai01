@@ -1,0 +1,19 @@
+---
+# Main tasks file for lxd_nginx_proxy role
+
+# Include tasks based on the action variable
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yaml
+  when: var_lxd_nginx_proxy_action == "deploy"
+  tags:
+    - deploy
+    - setup
+    - configure
+
+- name: Include remove tasks
+  ansible.builtin.include_tasks: remove.yaml
+  when: var_lxd_nginx_proxy_action == "remove"
+  tags:
+    - remove
+    - cleanup
+...

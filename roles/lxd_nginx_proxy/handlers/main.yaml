@@ -1,0 +1,21 @@
+---
+# Handlers for the lxd_nginx_proxy role
+
+# Restart NGINX service in the container
+- name: Restart NGINX
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- systemctl restart nginx"
+  listen: "restart nginx"
+
+# Reload NGINX configuration in the container
+- name: Reload NGINX
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- nginx -s reload"
+  listen: "reload nginx"
+
+# Apply netplan configuration
+- name: Apply netplan
+  ansible.builtin.command:
+    cmd: "netplan apply"
+  listen: "apply netplan"
+...

@@ -1,0 +1,32 @@
+---
+# Variables for the lxd_nginx_proxy role
+# These variables are not meant to be overridden by users
+
+# Internal variables
+# -----------------
+
+# Fact prefix for storing discovered information
+fact_lxd_nginx_proxy_prefix: "lxd_nginx_proxy"
+
+# Paths to source files
+var_lxd_nginx_proxy_source_paths:
+  netplan: "{{ playbook_dir }}/global/netplan/30-dummy-interface.yaml"
+  toggle_hosts: "{{ playbook_dir }}/global/toggle-hosts/toggle-hosts.sh"
+  error_40x: "{{ playbook_dir }}/global/nginx/custom_error/40x.html"
+  error_50x: "{{ playbook_dir }}/global/nginx/custom_error/50x.html"
+  nginx_conf: "{{ playbook_dir }}/online/etc/nginx/nginx.conf"
+  https_conf: "{{ playbook_dir }}/online/etc/nginx.d/https_k8clstlocal01.conf"
+  stream_conf: "{{ playbook_dir }}/online/etc/nginx.d/stream_k8clstlocal01.conf"
+  ssl_fullchain: "{{ playbook_dir }}/ssl/abiwot-lab.com/fullchain.pem"
+  ssl_privkey: "{{ playbook_dir }}/ssl/abiwot-lab.com/privkey.pem"
+
+# Paths to destination files in container
+var_lxd_nginx_proxy_dest_paths:
+  error_40x: "/usr/share/nginx/html/40x.html"
+  error_50x: "/usr/share/nginx/html/50x.html"
+  nginx_conf: "/etc/nginx/nginx.conf"
+  https_conf: "/etc/nginx/conf.d/k8s/http/https_k8clstlocal01.conf"
+  stream_conf: "/etc/nginx/conf.d/k8s/stream/stream_k8clstlocal01.conf"
+  ssl_fullchain: "/etc/pki/nginx/abiwot-lab/fullchain.pem"
+  ssl_privkey: "/etc/pki/nginx/abiwot-lab/privkey.pem"
+...

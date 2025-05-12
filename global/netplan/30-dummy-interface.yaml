@@ -1,0 +1,9 @@
+---
+network:
+  version: 2
+  renderer: networkd
+  bridges:
+    dummy0:
+      interfaces: []
+      addresses: [198.51.100.253/32]
+...

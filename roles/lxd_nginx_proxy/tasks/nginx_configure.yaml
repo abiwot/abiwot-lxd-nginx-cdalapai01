@@ -1,0 +1,138 @@
+---
+# Tasks for configuring NGINX in the LXD container
+
+# Create required directories
+- name: Create required directories
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- mkdir -p {{ item }}"
+  loop: "{{ var_lxd_nginx_proxy_directories }}"
+  register: fact_lxd_nginx_proxy_directories
+  changed_when: fact_lxd_nginx_proxy_directories.rc == 0
+  failed_when: fact_lxd_nginx_proxy_directories.rc != 0 and 'File exists' not in fact_lxd_nginx_proxy_directories.stderr
+  tags:
+    - nginx
+    - configure
+    - directories
+
+# Copy custom error files
+- name: Copy 40x error page
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.error_40x }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.error_40x }}"
+  register: fact_lxd_nginx_proxy_error_40x
+  changed_when: fact_lxd_nginx_proxy_error_40x.rc == 0
+  tags:
+    - nginx
+    - configure
+    - error_pages
+
+- name: Copy 50x error page
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.error_50x }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.error_50x }}"
+  register: fact_lxd_nginx_proxy_error_50x
+  changed_when: fact_lxd_nginx_proxy_error_50x.rc == 0
+  tags:
+    - nginx
+    - configure
+    - error_pages
+
+# Backup original NGINX configuration
+- name: Check if original NGINX configuration backup exists
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- test -f {{ var_lxd_nginx_proxy_nginx_conf_backup_path }}"
+  register: fact_lxd_nginx_proxy_nginx_conf_backup_exists
+  changed_when: false
+  failed_when: false
+  tags:
+    - nginx
+    - configure
+    - backup
+
+- name: Backup original NGINX configuration
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- cp {{ var_lxd_nginx_proxy_nginx_conf_path }} {{ var_lxd_nginx_proxy_nginx_conf_backup_path }}"
+  when: fact_lxd_nginx_proxy_nginx_conf_backup_exists.rc != 0
+  register: fact_lxd_nginx_proxy_nginx_conf_backup
+  changed_when: fact_lxd_nginx_proxy_nginx_conf_backup.rc == 0
+  tags:
+    - nginx
+    - configure
+    - backup
+
+# Copy NGINX configuration files
+- name: Copy NGINX main configuration
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.nginx_conf }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.nginx_conf }}"
+  register: fact_lxd_nginx_proxy_nginx_conf
+  changed_when: fact_lxd_nginx_proxy_nginx_conf.rc == 0
+  tags:
+    - nginx
+    - configure
+    - config_files
+
+- name: Copy NGINX HTTP configuration
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.https_conf }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.https_conf }}"
+  register: fact_lxd_nginx_proxy_https_conf
+  changed_when: fact_lxd_nginx_proxy_https_conf.rc == 0
+  tags:
+    - nginx
+    - configure
+    - config_files
+
+- name: Copy NGINX stream configuration
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.stream_conf }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.stream_conf }}"
+  register: fact_lxd_nginx_proxy_stream_conf
+  changed_when: fact_lxd_nginx_proxy_stream_conf.rc == 0
+  tags:
+    - nginx
+    - configure
+    - config_files
+
+# Copy SSL certificates
+- name: Copy SSL fullchain certificate
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.ssl_fullchain }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.ssl_fullchain }}"
+  register: fact_lxd_nginx_proxy_ssl_fullchain
+  changed_when: fact_lxd_nginx_proxy_ssl_fullchain.rc == 0
+  tags:
+    - nginx
+    - configure
+    - ssl
+
+- name: Copy SSL private key
+  ansible.builtin.command:
+    cmd: "lxc file push {{ var_lxd_nginx_proxy_source_paths.ssl_privkey }} {{ var_lxd_nginx_proxy_container_name }}{{ var_lxd_nginx_proxy_dest_paths.ssl_privkey }}"
+  register: fact_lxd_nginx_proxy_ssl_privkey
+  changed_when: fact_lxd_nginx_proxy_ssl_privkey.rc == 0
+  tags:
+    - nginx
+    - configure
+    - ssl
+
+# Set proper permissions for SSL files
+- name: Set permissions for SSL directory
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- chmod 700 {{ var_lxd_nginx_proxy_ssl_cert_dir }}"
+  register: fact_lxd_nginx_proxy_ssl_dir_perms
+  changed_when: fact_lxd_nginx_proxy_ssl_dir_perms.rc == 0
+  tags:
+    - nginx
+    - configure
+    - ssl
+    - permissions
+
+- name: Set permissions for SSL certificates
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- chmod 600 {{ var_lxd_nginx_proxy_ssl_cert_dir }}/{{ item }}"
+  loop:
+    - "{{ var_lxd_nginx_proxy_ssl_cert_fullchain }}"
+    - "{{ var_lxd_nginx_proxy_ssl_cert_privkey }}"
+  register: fact_lxd_nginx_proxy_ssl_cert_perms
+  changed_when: fact_lxd_nginx_proxy_ssl_cert_perms.rc == 0
+  tags:
+    - nginx
+    - configure
+    - ssl
+    - permissions
+...

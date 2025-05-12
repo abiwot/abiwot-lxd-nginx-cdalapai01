@@ -1,0 +1,70 @@
+---
+# Default variables for the lxd_nginx_proxy role
+
+# Container configuration
+# -----------------------
+
+# Name of the LXD container to create
+var_lxd_nginx_proxy_container_name: "nginx-proxy"
+
+# Base image for the container
+var_lxd_nginx_proxy_image: "ubuntu-minimal:24.04"
+
+# Action to perform (deploy or remove)
+var_lxd_nginx_proxy_action: "deploy"
+
+# Network configuration
+# --------------------
+
+# Dummy interface configuration
+var_lxd_nginx_proxy_dummy_interface_name: "dummy0"
+var_lxd_nginx_proxy_dummy_interface_ip: "198.51.100.253/32"
+var_lxd_nginx_proxy_dummy_interface_file: "/etc/netplan/30-dummy-interface.yaml"
+
+# Port forwarding configuration
+var_lxd_nginx_proxy_port_forwards:
+  - name: "hostport443"
+    listen: "tcp:0.0.0.0:443"
+    connect: "tcp:127.0.0.1:443"
+  # - name: "hostport6443"
+  #   listen: "tcp:0.0.0.0:6443"
+  #   connect: "tcp:127.0.0.1:6443"
+
+# NGINX configuration
+# ------------------
+
+# Directories to create in the container
+var_lxd_nginx_proxy_directories:
+  - "/etc/pki/nginx/abiwot-lab"
+  - "/etc/nginx/conf.d/k8s/http"
+  - "/etc/nginx/conf.d/k8s/stream"
+
+# NGINX package configuration
+var_lxd_nginx_proxy_apt_packages:
+  - "curl"
+  - "gnupg2"
+  - "ca-certificates"
+  - "lsb-release"
+  - "ubuntu-keyring"
+  - "net-tools"
+  - "vim"
+
+# NGINX repository configuration
+var_lxd_nginx_proxy_nginx_repo_key_url: "https://nginx.org/keys/nginx_signing.key"
+var_lxd_nginx_proxy_nginx_repo_key_path: "/usr/share/keyrings/nginx-archive-keyring.gpg"
+var_lxd_nginx_proxy_nginx_repo_list_path: "/etc/apt/sources.list.d/nginx.list"
+var_lxd_nginx_proxy_nginx_repo_preferences_path: "/etc/apt/preferences.d/99nginx"
+
+# NGINX configuration files
+var_lxd_nginx_proxy_nginx_conf_path: "/etc/nginx/nginx.conf"
+var_lxd_nginx_proxy_nginx_conf_backup_path: "/etc/nginx/nginx.conf.org"
+
+# SSL certificates
+var_lxd_nginx_proxy_ssl_cert_dir: "/etc/pki/nginx/abiwot-lab"
+var_lxd_nginx_proxy_ssl_cert_fullchain: "fullchain.pem"
+var_lxd_nginx_proxy_ssl_cert_privkey: "privkey.pem"
+
+# Toggle hosts configuration
+# -------------------------
+var_lxd_nginx_proxy_toggle_hosts_script_path: "/usr/local/bin/toggle-hosts.sh"
+...

@@ -1,0 +1,133 @@
+#!/bin/bash
+#
+# Script to toggle between normal and mobile hosts files
+# This script allows for quick switching between DNS configurations
+# when moving between networks
+
+# Define file paths
+HOSTS_FILE="/etc/hosts"
+MOBILE_HOSTS_FILE="/etc/hosts.mobile"
+BACKUP_HOSTS_FILE="/etc/hosts.original"
+
+# Function to display usage information
+usage() {
+    echo "Usage: $0 [OPTION]"
+    echo "Toggle between normal and mobile hosts files."
+    echo ""
+    echo "Options:"
+    echo "  status    Display current status (which hosts file is active)"
+    echo "  enable    Enable mobile hosts file"
+    echo "  disable   Disable mobile hosts file (use normal hosts)"
+    echo "  edit      Edit the mobile hosts file with vi"
+    echo "  --help    Display this help message"
+    echo ""
+    echo "If no option is provided, the script will initialize the hosts files if needed."
+    exit 1
+}
+
+# Function to check if running as root
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "Error: This script must be run as root"
+        exit 1
+    fi
+}
+
+# Function to initialize hosts files
+initialize() {
+    check_root
+    
+    # Create mobile hosts file if it doesn't exist
+    if [ ! -f "$MOBILE_HOSTS_FILE" ]; then
+        echo "Creating empty mobile hosts file at $MOBILE_HOSTS_FILE"
+        touch "$MOBILE_HOSTS_FILE"
+    fi
+    
+    # Create backup of original hosts file if it doesn't exist
+    if [ ! -f "$BACKUP_HOSTS_FILE" ]; then
+        echo "Creating backup of original hosts file at $BACKUP_HOSTS_FILE"
+        cp "$HOSTS_FILE" "$BACKUP_HOSTS_FILE"
+    fi
+    
+    echo "Hosts files initialized. Use '$0 status' to check current status."
+}
+
+# Function to check status
+check_status() {
+    if cmp -s "$HOSTS_FILE" "$MOBILE_HOSTS_FILE"; then
+        echo "Status: Mobile hosts file is ACTIVE"
+    elif cmp -s "$HOSTS_FILE" "$BACKUP_HOSTS_FILE"; then
+        echo "Status: Normal hosts file is ACTIVE"
+    else
+        echo "Status: UNKNOWN - hosts file has been modified"
+    fi
+}
+
+# Function to enable mobile hosts
+enable_mobile() {
+    check_root
+    
+    # Check if already enabled
+    if cmp -s "$HOSTS_FILE" "$MOBILE_HOSTS_FILE"; then
+        echo "Mobile hosts file is already active"
+        return
+    fi
+    
+    # Backup current hosts file if not already backed up
+    if ! cmp -s "$HOSTS_FILE" "$BACKUP_HOSTS_FILE"; then
+        cp "$HOSTS_FILE" "$BACKUP_HOSTS_FILE"
+    fi
+    
+    # Replace with mobile hosts
+    cp "$MOBILE_HOSTS_FILE" "$HOSTS_FILE"
+    echo "Mobile hosts file activated"
+}
+
+# Function to disable mobile hosts
+disable_mobile() {
+    check_root
+    
+    # Check if already disabled
+    if cmp -s "$HOSTS_FILE" "$BACKUP_HOSTS_FILE"; then
+        echo "Mobile hosts file is already inactive"
+        return
+    fi
+    
+    # Restore original hosts file
+    cp "$BACKUP_HOSTS_FILE" "$HOSTS_FILE"
+    echo "Mobile hosts file deactivated, normal hosts restored"
+}
+
+# Function to edit mobile hosts file
+edit_mobile() {
+    check_root
+    vi "$MOBILE_HOSTS_FILE"
+}
+
+# Main script logic
+case "$1" in
+    status)
+        check_status
+        ;;
+    enable)
+        enable_mobile
+        ;;
+    disable)
+        disable_mobile
+        ;;
+    edit)
+        edit_mobile
+        ;;
+    --help)
+        usage
+        ;;
+    "")
+        initialize
+        ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        ;;
+esac
+
+exit 0

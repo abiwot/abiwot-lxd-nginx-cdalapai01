@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  author: Your Name
+  description: Role to deploy an LXD container running NGINX-proxy for Kubernetes API aggregation and ingress
+  company: Your Company
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - lxd
+    - container
+    - nginx
+    - kubernetes
+    - proxy
+    - ingress
+
+dependencies: []
+...

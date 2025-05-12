@@ -1,0 +1,9 @@
+---
+network:
+  version: 2
+  renderer: networkd
+  bridges:
+    {{ var_lxd_nginx_proxy_dummy_interface_name }}:
+      interfaces: []
+      addresses: [{{ var_lxd_nginx_proxy_dummy_interface_ip }}]
+...

@@ -1,0 +1,93 @@
+---
+# Tasks for installing NGINX in the LXD container
+
+# Update package cache and upgrade packages
+- name: Update package cache
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- apt update"
+  register: fact_lxd_nginx_proxy_apt_update
+  changed_when: "'packages can be upgraded' in fact_lxd_nginx_proxy_apt_update.stdout"
+  tags:
+    - packages
+    - update
+
+- name: Upgrade packages
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- apt -y upgrade"
+  when: fact_lxd_nginx_proxy_apt_update.changed
+  tags:
+    - packages
+    - update
+
+# Install required packages
+- name: Install required packages
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- apt install -y {{ var_lxd_nginx_proxy_apt_packages | join(' ') }}"
+  register: fact_lxd_nginx_proxy_apt_install
+  changed_when: "'0 newly installed' not in fact_lxd_nginx_proxy_apt_install.stdout"
+  tags:
+    - packages
+    - install
+
+# Configure NGINX repository
+- name: Download NGINX signing key
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- bash -c 'curl {{ var_lxd_nginx_proxy_nginx_repo_key_url }} | gpg --dearmor > {{ var_lxd_nginx_proxy_nginx_repo_key_path }}'"
+  register: fact_lxd_nginx_proxy_nginx_key
+  changed_when: fact_lxd_nginx_proxy_nginx_key.rc == 0
+  args:
+    creates: "{{ var_lxd_nginx_proxy_nginx_repo_key_path }}"
+  tags:
+    - nginx
+    - repository
+
+- name: Add NGINX repository
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- bash -c 'echo \"deb [signed-by={{ var_lxd_nginx_proxy_nginx_repo_key_path }}] http://nginx.org/packages/ubuntu `lsb_release -cs` nginx\" > {{ var_lxd_nginx_proxy_nginx_repo_list_path }}'"
+  register: fact_lxd_nginx_proxy_nginx_repo
+  changed_when: fact_lxd_nginx_proxy_nginx_repo.rc == 0
+  args:
+    creates: "{{ var_lxd_nginx_proxy_nginx_repo_list_path }}"
+  tags:
+    - nginx
+    - repository
+
+- name: Set NGINX repository preferences
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- bash -c 'echo -e \"Package: *\\nPin: origin nginx.org\\nPin: release o=nginx\\nPin-Priority: 900\\n\" > {{ var_lxd_nginx_proxy_nginx_repo_preferences_path }}'"
+  register: fact_lxd_nginx_proxy_nginx_preferences
+  changed_when: fact_lxd_nginx_proxy_nginx_preferences.rc == 0
+  args:
+    creates: "{{ var_lxd_nginx_proxy_nginx_repo_preferences_path }}"
+  tags:
+    - nginx
+    - repository
+
+# Update package cache after adding repository
+- name: Update package cache after adding NGINX repository
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- apt update"
+  when: fact_lxd_nginx_proxy_nginx_key.changed or fact_lxd_nginx_proxy_nginx_repo.changed or fact_lxd_nginx_proxy_nginx_preferences.changed
+  tags:
+    - nginx
+    - repository
+
+# Install NGINX
+- name: Install NGINX
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- apt install -y nginx"
+  register: fact_lxd_nginx_proxy_nginx_install
+  changed_when: "'0 newly installed' not in fact_lxd_nginx_proxy_nginx_install.stdout"
+  tags:
+    - nginx
+    - install
+
+- name: Hold NGINX package
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- apt-mark hold nginx"
+  register: fact_lxd_nginx_proxy_nginx_hold
+  changed_when: "'nginx was already set on hold' not in fact_lxd_nginx_proxy_nginx_hold.stdout"
+  tags:
+    - nginx
+    - install
+...

@@ -1,0 +1,157 @@
+---
+# Tasks for removing the LXD NGINX-proxy container
+
+# Verify LXD is installed and running
+- name: Verify LXD is installed
+  ansible.builtin.command:
+    cmd: lxd --version
+  register: fact_lxd_nginx_proxy_lxd_version
+  changed_when: false
+  failed_when: fact_lxd_nginx_proxy_lxd_version.rc != 0
+  check_mode: false
+  tags:
+    - verify
+    - always
+
+- name: Verify LXD service is running
+  ansible.builtin.command:
+    cmd: systemctl is-active snap.lxd.daemon.service
+  register: fact_lxd_nginx_proxy_lxd_service
+  changed_when: false
+  failed_when: fact_lxd_nginx_proxy_lxd_service.stdout != "active"
+  tags:
+    - verify
+    - always
+
+# Check if container exists
+- name: Check if container exists
+  ansible.builtin.command:
+    cmd: "lxc info {{ var_lxd_nginx_proxy_container_name }}"
+  register: fact_lxd_nginx_proxy_container_exists
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags:
+    - container
+    - remove
+
+# Prompt for confirmation before removing container
+- name: Prompt for confirmation before removing container
+  ansible.builtin.pause:
+    prompt: "WARNING: This will completely remove the {{ var_lxd_nginx_proxy_container_name }} container and all its data. Type 'yes' to continue or press Ctrl+C to abort"
+  register: fact_lxd_nginx_proxy_remove_confirmation
+  when: fact_lxd_nginx_proxy_container_exists.rc == 0
+  tags:
+    - container
+    - remove
+    - prompt
+
+- name: Validate confirmation
+  ansible.builtin.assert:
+    that:
+      - fact_lxd_nginx_proxy_remove_confirmation.user_input == "yes"
+    fail_msg: "Container removal aborted by user"
+  when: fact_lxd_nginx_proxy_container_exists.rc == 0
+  tags:
+    - container
+    - remove
+    - prompt
+
+# Stop container if running
+- name: Check if container is running
+  ansible.builtin.shell: "lxc info {{ var_lxd_nginx_proxy_container_name }} | grep -q 'Status: RUNNING'"
+  register: fact_lxd_nginx_proxy_container_running
+  changed_when: false
+  failed_when: false
+  when: fact_lxd_nginx_proxy_container_exists.rc == 0
+  tags:
+    - container
+    - remove
+
+- name: Stop container if running
+  ansible.builtin.command:
+    cmd: "lxc stop {{ var_lxd_nginx_proxy_container_name }}"
+  when: 
+    - fact_lxd_nginx_proxy_container_exists.rc == 0
+    - fact_lxd_nginx_proxy_container_running.rc == 0
+  register: fact_lxd_nginx_proxy_container_stop
+  changed_when: fact_lxd_nginx_proxy_container_stop.rc == 0
+  tags:
+    - container
+    - remove
+
+# Remove container
+- name: Remove container
+  ansible.builtin.command:
+    cmd: "lxc delete {{ var_lxd_nginx_proxy_container_name }}"
+  when: fact_lxd_nginx_proxy_container_exists.rc == 0
+  register: fact_lxd_nginx_proxy_container_remove
+  changed_when: fact_lxd_nginx_proxy_container_remove.rc == 0
+  tags:
+    - container
+    - remove
+
+# Remove dummy interface configuration if requested
+- name: Prompt for confirmation before removing dummy interface
+  ansible.builtin.pause:
+    prompt: "Do you want to remove the dummy interface configuration? Type 'yes' to remove or 'no' to keep it"
+  register: fact_lxd_nginx_proxy_remove_dummy_confirmation
+  tags:
+    - network
+    - dummy_interface
+    - remove
+    - prompt
+
+- name: Remove dummy interface netplan configuration
+  ansible.builtin.file:
+    path: "{{ var_lxd_nginx_proxy_dummy_interface_file }}"
+    state: absent
+  when: fact_lxd_nginx_proxy_remove_dummy_confirmation.user_input == "yes"
+  register: fact_lxd_nginx_proxy_dummy_interface_remove
+  tags:
+    - network
+    - dummy_interface
+    - remove
+
+- name: Apply netplan configuration after removing dummy interface
+  ansible.builtin.command:
+    cmd: netplan apply
+  when: 
+    - fact_lxd_nginx_proxy_remove_dummy_confirmation.user_input == "yes"
+    - fact_lxd_nginx_proxy_dummy_interface_remove.changed
+  tags:
+    - network
+    - dummy_interface
+    - remove
+
+# Prompt for toggle-hosts script removal
+- name: Prompt for confirmation before removing toggle-hosts script
+  ansible.builtin.pause:
+    prompt: "Do you want to remove the toggle-hosts script? Type 'yes' to remove or 'no' to keep it"
+  register: fact_lxd_nginx_proxy_remove_toggle_hosts_confirmation
+  tags:
+    - toggle_hosts
+    - remove
+    - prompt
+
+- name: Remove toggle-hosts script
+  ansible.builtin.file:
+    path: "{{ var_lxd_nginx_proxy_toggle_hosts_script_path }}"
+    state: absent
+  when: fact_lxd_nginx_proxy_remove_toggle_hosts_confirmation.user_input == "yes"
+  register: fact_lxd_nginx_proxy_toggle_hosts_remove
+  tags:
+    - toggle_hosts
+    - remove
+
+- name: Display removal summary
+  ansible.builtin.debug:
+    msg: 
+      - "Removal summary:"
+      - "Container {{ var_lxd_nginx_proxy_container_name }} removed: {{ fact_lxd_nginx_proxy_container_remove.changed | default(false) }}"
+      - "Dummy interface configuration removed: {{ fact_lxd_nginx_proxy_dummy_interface_remove.changed | default(false) }}"
+      - "Toggle-hosts script removed: {{ fact_lxd_nginx_proxy_toggle_hosts_remove.changed | default(false) }}"
+  tags:
+    - summary
+    - remove
+...

@@ -1,0 +1,18 @@
+---
+# Playbook for removing LXD NGINX-proxy container
+# This playbook automates the removal of the LXD container
+# with user confirmation before taking action
+
+- name: Remove LXD NGINX-proxy container
+  hosts: localhost
+  gather_facts: true
+  become: true
+  
+  vars_files:
+    - ./roles/lxd_nginx_proxy/vars/main.yaml
+  
+  roles:
+    - role: lxd_nginx_proxy
+      vars:
+        var_lxd_nginx_proxy_action: remove
+...

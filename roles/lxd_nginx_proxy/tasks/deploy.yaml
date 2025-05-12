@@ -1,0 +1,142 @@
+---
+# Tasks for deploying the LXD NGINX-proxy container
+
+# Verify LXD is installed and running
+- name: Verify LXD is installed
+  ansible.builtin.command:
+    cmd: lxd --version
+  register: fact_lxd_nginx_proxy_lxd_version
+  changed_when: false
+  failed_when: fact_lxd_nginx_proxy_lxd_version.rc != 0
+  check_mode: false
+  tags:
+    - verify
+    - always
+
+- name: Verify LXD service is running
+  ansible.builtin.command:
+    cmd: systemctl is-active snap.lxd.daemon.service
+  register: fact_lxd_nginx_proxy_lxd_service
+  changed_when: false
+  failed_when: fact_lxd_nginx_proxy_lxd_service.stdout != "active"
+  tags:
+    - verify
+    - always
+
+# Setup dummy interface for anchor IP
+- name: Create dummy interface netplan configuration
+  ansible.builtin.template:
+    src: 30-dummy-interface.yaml.j2
+    dest: "{{ var_lxd_nginx_proxy_dummy_interface_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  register: fact_lxd_nginx_proxy_dummy_interface_config
+  tags:
+    - network
+    - dummy_interface
+
+- name: Apply netplan configuration
+  ansible.builtin.command:
+    cmd: netplan apply
+  when: fact_lxd_nginx_proxy_dummy_interface_config.changed
+  tags:
+    - network
+    - dummy_interface
+
+# Setup toggle-hosts script
+- name: Copy toggle-hosts script
+  ansible.builtin.template:
+    src: toggle-hosts.sh.j2
+    dest: "{{ var_lxd_nginx_proxy_toggle_hosts_script_path }}"
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - toggle_hosts
+
+# Create LXD container
+- name: Check if container exists
+  ansible.builtin.command:
+    cmd: "lxc info {{ var_lxd_nginx_proxy_container_name }}"
+  register: fact_lxd_nginx_proxy_container_exists
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags:
+    - container
+
+- name: Create LXD container
+  ansible.builtin.command:
+    cmd: "lxc launch {{ var_lxd_nginx_proxy_image }} {{ var_lxd_nginx_proxy_container_name }}"
+  when: fact_lxd_nginx_proxy_container_exists.rc != 0
+  register: fact_lxd_nginx_proxy_container_created
+  tags:
+    - container
+
+- name: Wait for container to be ready
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- systemctl is-system-running --wait"
+  register: fact_lxd_nginx_proxy_container_ready
+  until: fact_lxd_nginx_proxy_container_ready.rc == 0 or fact_lxd_nginx_proxy_container_ready.rc == 1
+  retries: 10
+  delay: 5
+  changed_when: false
+  when: fact_lxd_nginx_proxy_container_exists.rc != 0 or fact_lxd_nginx_proxy_container_created is defined
+  tags:
+    - container
+
+# Configure port forwarding
+- name: Configure port forwarding
+  ansible.builtin.command:
+    cmd: "lxc config device add {{ var_lxd_nginx_proxy_container_name }} {{ item.name }} proxy listen={{ item.listen }} connect={{ item.connect }}"
+  loop: "{{ var_lxd_nginx_proxy_port_forwards }}"
+  register: fact_lxd_nginx_proxy_port_forward_result
+  changed_when: fact_lxd_nginx_proxy_port_forward_result.rc == 0
+  failed_when: fact_lxd_nginx_proxy_port_forward_result.rc != 0 and 'already exists' not in fact_lxd_nginx_proxy_port_forward_result.stderr
+  tags:
+    - container
+    - port_forward
+
+# Install and configure NGINX in the container
+- name: Include NGINX installation tasks
+  ansible.builtin.include_tasks: nginx_install.yaml
+  tags:
+    - nginx
+    - install
+
+# Configure NGINX in the container
+- name: Include NGINX configuration tasks
+  ansible.builtin.include_tasks: nginx_configure.yaml
+  tags:
+    - nginx
+    - configure
+
+# Verify NGINX is running correctly
+- name: Verify NGINX configuration
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- nginx -t"
+  register: fact_lxd_nginx_proxy_nginx_verify
+  changed_when: false
+  tags:
+    - nginx
+    - verify
+
+- name: Restart NGINX service
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- systemctl restart nginx"
+  when: fact_lxd_nginx_proxy_nginx_verify.rc == 0
+  tags:
+    - nginx
+    - service
+
+- name: Verify NGINX is running
+  ansible.builtin.command:
+    cmd: "lxc exec {{ var_lxd_nginx_proxy_container_name }} -- systemctl is-active nginx"
+  register: fact_lxd_nginx_proxy_nginx_status
+  changed_when: false
+  failed_when: fact_lxd_nginx_proxy_nginx_status.stdout != "active"
+  tags:
+    - nginx
+    - verify
+...
