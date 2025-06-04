@@ -22,3 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - n/a
+
+
+## [1.0.1] - 2025-06-04
+
+### Added
+
+- Server terminations for Ollama API URLs
+
+### Changed
+
+- n/a
+
+### Removed
+
+- n/a
